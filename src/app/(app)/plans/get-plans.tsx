@@ -130,6 +130,7 @@ export default function GetPlan() {
           amount: amount.toString(),
           currency: plan.currency,
           type: "plan",
+          name: plan.name,
           plan_due_date,
         },
       });

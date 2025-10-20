@@ -130,7 +130,9 @@ export default function GetPlan() {
           paymentId: paymentRow.id,
           amount: amount.toString(),
           currency: selectedPkg.currency,
+          name: consumable.name,
           type: "consumable",
+          amountNumber: selectedPkg.quantity,
         },
       });
     } catch (err) {

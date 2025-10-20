@@ -1,3 +1,4 @@
+import AboutUs from "@/components/about-us";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Link, router, Stack } from "expo-router";
@@ -22,7 +23,7 @@ const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
 export default function Page() {
   const { data: profile, refetch } = useMyProfile(); // assuming useMyProfile returns refetch
-  const [selectedCard, setSelectedCard] = useState<"pay-plan" | "safety">(
+  const [selectedCard, setSelectedCard] = useState<"pay-plan" | "about-us">(
     "pay-plan"
   );
   const { tabBarOpacity } = useTabBar();
@@ -109,14 +110,24 @@ export default function Page() {
           </View>
           <View className="items-center gap-2 my-12">
             <Pressable
-              className="h-32 aspect-square rounded-full border-4 p-1"
+              className="h-32 aspect-square rounded-full p-1"
               onPress={() => router.push("/profile")}
-              style={{ borderColor: theme.colors.primaryDark }}
+              style={{ borderWidth: 4, borderColor: theme.colors.primaryDark }}
             >
               <Image
                 source={profile?.avatar_url}
                 className="flex-1 rounded-full bg-neutral-400"
               />
+              <View
+                className="absolute bottom-1 right-1 rounded-full p-1 border-2 border-white"
+                style={{ backgroundColor: theme.colors.primaryDark }}
+              >
+                <Ionicons
+                  name="pencil-outline"
+                  size={12}
+                  color={theme.colors.textLight}
+                />
+              </View>
             </Pressable>
             <Text className="text-2xl font-poppins-semibold">
               {profile?.first_name}
@@ -131,20 +142,14 @@ export default function Page() {
             onPress={() => setSelectedCard("pay-plan")}
           />
           <Card
-            key="safety"
-            title="Safety & Wellbeing"
-            selected={selectedCard === "safety"}
-            onPress={() => setSelectedCard("safety")}
+            key="about-us"
+            title="About Us"
+            selected={selectedCard === "about-us"}
+            onPress={() => setSelectedCard("about-us")}
           />
         </View>
         {selectedCard === "pay-plan" && <MyPayPlan refreshKey={refreshKey} />}
-        {selectedCard === "safety" && (
-          <View className="items-center mt-10">
-            <Text className="text-lg font-semibold">
-              Safety & Wellbeing coming soon...
-            </Text>
-          </View>
-        )}
+        {selectedCard === "about-us" && <AboutUs />}
       </AnimatedScrollView>
     </SafeAreaView>
   );

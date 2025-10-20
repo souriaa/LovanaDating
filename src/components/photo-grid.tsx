@@ -3,8 +3,16 @@ import * as Crypto from "expo-crypto";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { FC, useEffect, useState } from "react";
-import { Alert, Dimensions, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  Dimensions,
+  Modal,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { DraggableGrid } from "react-native-draggable-grid";
+import { theme } from "~/constants/theme";
 import { Photo, PrivateProfile } from "../api/my-profile/types";
 import { supabase } from "../lib/supabase";
 import { useEdit } from "../store/edit";
@@ -36,6 +44,9 @@ export const PhotoGrid: FC<Props> = ({
 
   const [data, setData] = useState<Item[]>([]);
   const { setEdits, setGridActive } = useEdit();
+
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const initialData: Item[] = Array(slots)
@@ -170,7 +181,20 @@ export const PhotoGrid: FC<Props> = ({
             </TouchableOpacity>
           </View>
         ) : (
-          <View className="flex-1 border border-red-600 border-dashed rounded-md" />
+          <TouchableOpacity
+            onPress={pickPhoto}
+            style={{
+              flex: 1,
+              borderWidth: 1,
+              borderColor: theme.colors.primaryDark,
+              borderStyle: "dashed",
+              borderRadius: 8,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Ionicons name="add" size={32} color={theme.colors.primaryDark} />
+          </TouchableOpacity>
         )}
       </View>
     );
@@ -200,18 +224,20 @@ export const PhotoGrid: FC<Props> = ({
   const onItemPress = (item: Item) => {
     if (!item.photo) {
       pickPhoto();
+    } else {
+      // replacePhoto(item);
+      setPreviewImageUrl(item.photo.photo_url);
+      setShowPreviewModal(true);
     }
-    // else {
-    //   replacePhoto(item);
-    // }
   };
 
   const pickPhoto = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
       mediaTypes: ["images"],
       allowsMultipleSelection: true,
       selectionLimit: slots - data.filter((item) => item.photo).length,
-      aspect: [4, 3],
+      aspect: [3, 4],
       quality: 1,
     });
 
@@ -257,7 +283,7 @@ export const PhotoGrid: FC<Props> = ({
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
-      aspect: [4, 3],
+      aspect: [3, 4],
       quality: 1,
     });
 
@@ -298,6 +324,35 @@ export const PhotoGrid: FC<Props> = ({
     }
   };
 
+  const renderImagePreviewModal = () => {
+    return (
+      <Modal
+        visible={showPreviewModal}
+        transparent={true}
+        onRequestClose={() => setShowPreviewModal(false)}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {previewImageUrl && (
+              <Image
+                source={previewImageUrl}
+                style={styles.fullScreenImage}
+                contentFit="contain" // Ensures the image fits without cropping
+              />
+            )}
+            <TouchableOpacity
+              onPress={() => setShowPreviewModal(false)}
+              style={styles.closeButton}
+            >
+              <Ionicons name="close-circle" size={40} color="white" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <View
       style={{
@@ -313,6 +368,33 @@ export const PhotoGrid: FC<Props> = ({
         onDragItemActive={onDragItemActive}
         onItemPress={onItemPress}
       />
+      {renderImagePreviewModal()}
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    flex: 1,
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fullScreenImage: {
+    width: "90%",
+    height: "90%",
+    borderRadius: theme.radius.md,
+  },
+  closeButton: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    zIndex: 1,
+  },
+});

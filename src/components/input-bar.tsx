@@ -14,14 +14,17 @@ import Tooltip from "react-native-tooltip-2";
 import { theme } from "../../constants/theme";
 import { getActivePlanByUserId } from "../../service/profilePlanService";
 import Input from "./Input";
+import { InputAlertModal } from "./input-alert-modal";
 
 const STORAGE_KEY = "ai_response_limit";
 const LIMIT = 5;
 const RESET_TIME = 60 * 60 * 1000;
 
+const storage = AsyncStorage;
+
 async function getAIStatus() {
   try {
-    const data = await AsyncStorage.getItem(STORAGE_KEY);
+    const data = await storage.getItem(STORAGE_KEY);
     const now = Date.now();
 
     if (!data) return { count: 0, timestamp: now };
@@ -29,7 +32,7 @@ async function getAIStatus() {
     const { count, timestamp } = JSON.parse(data);
 
     if (now - timestamp > RESET_TIME) {
-      await AsyncStorage.setItem(
+      await storage.setItem(
         STORAGE_KEY,
         JSON.stringify({ count: 0, timestamp: now })
       );
@@ -48,14 +51,14 @@ async function useAIResponse() {
     const { count, timestamp } = await getAIStatus();
     const now = Date.now();
     if (now - timestamp > RESET_TIME) {
-      await AsyncStorage.setItem(
+      await storage.setItem(
         STORAGE_KEY,
         JSON.stringify({ count: 1, timestamp: now })
       );
       return 1;
     }
 
-    await AsyncStorage.setItem(
+    await storage.setItem(
       STORAGE_KEY,
       JSON.stringify({ count: count + 1, timestamp })
     );
@@ -81,6 +84,8 @@ export const InputBar = ({
   const [planIsValid, setPlanIsValid] = useState(false);
   const [aiInfo, setAiInfo] = useState({ remaining: LIMIT, resetMinutes: 60 });
   const tooltipRef = useRef(null);
+
+  const [aiModalVisible, setAiModalVisible] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -116,22 +121,21 @@ export const InputBar = ({
     })();
   }, []);
 
-  const handleAIResponse = async () => {
+  const handleAIResponse = async (customizationMessage) => {
     const { count } = await getAIStatus();
     if (count >= LIMIT) {
       Alert.alert(
-        "Giới hạn đã đạt",
-        "Bạn chỉ có thể dùng AI tối đa 5 lần mỗi 1 tiếng. Vui lòng thử lại sau."
+        "Limit reached",
+        "You can only use AI up to 5 times per hour. Please try again later."
       );
       return;
     }
 
-    setTimeout(() => {
-      setTooltipVisible(true);
-    }, 1000);
-
-    onAIResponse?.(async (success) => {
+    onAIResponse?.(customizationMessage, async (success) => {
       if (success) {
+        setTimeout(() => {
+          setTooltipVisible(true);
+        }, 1000);
         const newCount = await useAIResponse();
         const remaining = Math.max(LIMIT - newCount, 0);
         const elapsed = Date.now() - (await getAIStatus()).timestamp;
@@ -140,11 +144,22 @@ export const InputBar = ({
           0
         );
         setAiInfo({ remaining, resetMinutes });
+      } else {
+        Alert.alert("Error", "Something went wrong, please try again later");
       }
     });
   };
 
   const closeTooltip = () => setTooltipVisible(false);
+
+  const handleAiOk = async (value: string) => {
+    setAiModalVisible(false);
+    await handleAIResponse(value);
+  };
+
+  const handleAiCancel = () => {
+    setAiModalVisible(false);
+  };
 
   return (
     <TouchableWithoutFeedback onPress={closeTooltip}>
@@ -153,66 +168,81 @@ export const InputBar = ({
           <Ionicons
             name="attach-outline"
             size={28}
-            color={theme.colors.primary}
+            color={theme.colors.primaryDark}
           />
         </TouchableOpacity>
 
         {planIsValid && (
-          <Tooltip
-            ref={tooltipRef}
-            isVisible={tooltipVisible}
-            onClose={closeTooltip}
-            backgroundColor="rgba(0,0,0,0.5)"
-            placement="top"
-            content={
-              <View style={{ padding: 8 }}>
-                <Text style={{ color: "#000", fontFamily: "Poppins-Regular" }}>
-                  Còn lại: {aiInfo.remaining} / {LIMIT} lần
-                </Text>
-                <Text style={{ color: "#000", fontFamily: "Poppins-Bold" }}>
-                  Reset sau: {aiInfo.resetMinutes} phút
-                </Text>
-              </View>
-            }
-          >
-            <TouchableOpacity
-              onPress={(e) => {
-                e.stopPropagation();
-                handleAIResponse();
-              }}
-              style={styles.uploadBtn}
+          <>
+            <Tooltip
+              ref={tooltipRef}
+              isVisible={tooltipVisible}
+              onClose={closeTooltip}
+              backgroundColor="rgba(0,0,0,0.5)"
+              placement="top"
+              content={
+                <View style={{ padding: 8, margin: 10 }}>
+                  <Text
+                    style={{ color: "#000", fontFamily: "Poppins-Regular" }}
+                  >
+                    Còn lại: {aiInfo.remaining} / {LIMIT} lần
+                  </Text>
+                  <Text style={{ color: "#000", fontFamily: "Poppins-Bold" }}>
+                    Reset sau: {aiInfo.resetMinutes} phút
+                  </Text>
+                </View>
+              }
             >
-              <View
-                style={{
-                  width: 28,
-                  height: 28,
-                  justifyContent: "center",
-                  alignItems: "center",
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setAiModalVisible(true);
                 }}
+                style={styles.uploadBtn}
               >
-                <Ionicons
-                  name="chatbubble-ellipses-outline"
-                  size={28}
-                  color={theme.colors.primary}
-                />
-                <Text
+                <View
                   style={{
-                    position: "absolute",
-                    top: -4,
-                    right: -4,
-                    fontSize: 8,
-                    fontFamily: "Poppins-Regular",
-                    color: theme.colors.primary,
-                    backgroundColor: "#fff",
-                    borderRadius: 10,
-                    paddingHorizontal: 4,
+                    width: 28,
+                    height: 28,
+                    justifyContent: "center",
+                    alignItems: "center",
                   }}
                 >
-                  AI
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </Tooltip>
+                  <Ionicons
+                    name="chatbubble-ellipses-outline"
+                    size={28}
+                    color={theme.colors.primaryDark}
+                  />
+                  <Text
+                    style={{
+                      position: "absolute",
+                      top: -4,
+                      right: -4,
+                      fontSize: 8,
+                      fontFamily: "Poppins-Regular",
+                      color: theme.colors.primaryDark,
+                      backgroundColor: "#fff",
+                      borderRadius: 10,
+                      paddingHorizontal: 4,
+                    }}
+                  >
+                    AI
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </Tooltip>
+
+            <InputAlertModal
+              visible={aiModalVisible}
+              title="What's your mood?(Optional)"
+              message="Enter a mood so the AI can respond to:"
+              placeholder="e.g. Excited but a little nervous"
+              okText="Confirm"
+              cancelText="Cancel"
+              onOk={handleAiOk}
+              onCancel={handleAiCancel}
+            />
+          </>
         )}
 
         <Input
@@ -231,12 +261,12 @@ export const InputBar = ({
           activeOpacity={isSending ? 1 : 0.7}
         >
           {isSending ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} />
+            <ActivityIndicator size="small" color={theme.colors.primaryDark} />
           ) : (
             <Ionicons
               name="send-outline"
               size={28}
-              color={theme.colors.primary}
+              color={theme.colors.primaryDark}
             />
           )}
         </TouchableOpacity>

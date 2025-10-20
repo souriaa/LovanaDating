@@ -1,6 +1,6 @@
-import React, { useRef } from "react";
-import { View, Animated, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRef } from "react";
+import { Animated, StyleSheet } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { theme } from "../../constants/theme";
 
@@ -21,7 +21,7 @@ export const SwipeableMessage = ({ children, onReply, isMine }) => {
         <Ionicons
           name="arrow-undo-outline"
           size={24}
-          color={theme.colors.primary}
+          color={theme.colors.primaryDark}
         />
       </Animated.View>
     );
@@ -33,7 +33,7 @@ export const SwipeableMessage = ({ children, onReply, isMine }) => {
     // Icon di chuyển theo swipe
     const translateX = dragX.interpolate({
       inputRange: [-100, 0],
-      outputRange: [0, 35], 
+      outputRange: [0, 35],
       extrapolate: "clamp",
     });
 
@@ -47,7 +47,7 @@ export const SwipeableMessage = ({ children, onReply, isMine }) => {
         <Ionicons
           name="arrow-undo-outline"
           size={24}
-          color={theme.colors.primary}
+          color={theme.colors.primaryDark}
         />
       </Animated.View>
     );
