@@ -1,3 +1,4 @@
+import { InputDateAlertModal } from "@/components/input-date-alert-modal";
 import * as DocumentPicker from "expo-document-picker";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -14,6 +15,8 @@ import { theme } from "../../../../constants/theme";
 import { uploadFile } from "../../../../service/imageService";
 import { getInteractionByActorAndTarget } from "../../../../service/interactionService";
 import {
+  createSchedule,
+  deleteConversationById,
   fetchConversationSeenStatus,
   fetchMessages,
   fetchOlderMessages,
@@ -66,6 +69,8 @@ export default function ChatScreen() {
   const [isSending, setIsSending] = useState(false);
 
   const [hasMore, setHasMore] = useState(true);
+
+  const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
 
   const headerHeight = 88;
   const height = screenHeight - headerHeight;
@@ -316,7 +321,7 @@ export default function ChatScreen() {
     );
   };
 
-  async function getAIResponse(messages, userId) {
+  async function getAIResponse(messages, userId, customizationMessage) {
     const sortedMessages = messages.sort(
       (a, b) =>
         new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -333,13 +338,18 @@ export default function ChatScreen() {
       .join("\n");
 
     const prompt = `
-Bạn đang giúp tạo một câu trả lời ngắn, tự nhiên cho một người (sender_id: Me) trong một cuộc trò chuyện giữa hai người (Me và Them). Giữ câu trả lời thân thiện, tự nhiên, gần gũi. Chỉ viết câu tiếp theo mà sender_id Me sẽ nói.Cuộc trò chuyện: ${conversationText}
-Câu trả lời cho sender_id Me:
-  `.trim();
+    Bạn đang giúp tạo 01 câu trả lời NGẮN, tự nhiên cho một người (sender_id: Me) trong một cuộc trò chuyện giữa hai người (Me và Them). Giữ câu trả lời thân thiện, tự nhiên, gần gũi.
+    ${customizationMessage ? `Phong cách: ${customizationMessage}` : ""}
+    Đặt mình vào vị trí người dùng, KHÔNG trích dẫn, chỉ viết câu tiếp theo mà sender_id Me sẽ nói.
+    Cuộc trò chuyện:
+    ${conversationText}
+
+    Câu trả lời cho sender_id Me:
+      `.trim();
 
     try {
       const response = await fetch(
-        "https://sewuxuattigekhjtdasv.functions.supabase.co/AIReplySuggestion",
+        `${process.env.EXPO_PUBLIC_SUPABASE_FUNCTION_URL}/AIReplySuggestion`,
         {
           method: "POST",
           body: JSON.stringify(prompt),
@@ -354,12 +364,14 @@ Câu trả lời cho sender_id Me:
 
       if (data?.body) {
         setText(data.body);
+        return true;
+      } else {
+        return false;
       }
     } catch (err) {
       console.error("Failed to fetch AI reply:", err);
+      return false;
     }
-
-    return { messages: formattedMessages };
   }
 
   const GROUP_WINDOW_MS = 2 * 60 * 1000;
@@ -493,6 +505,38 @@ Câu trả lời cho sender_id Me:
     });
   };
 
+  const handleCreateSchedule = () => {
+    setScheduleModalVisible(true);
+  };
+
+  const handleScheduleOk = async ({
+    text,
+    date,
+  }: {
+    text: string;
+    date: Date;
+  }) => {
+    setScheduleModalVisible(false);
+
+    if (!text || !date) return;
+
+    try {
+      const result = await createSchedule(text, date, conversationId);
+      if (result) {
+        Alert.alert("Success", "Schedule created!");
+      } else {
+        console.error("Failed to create schedule");
+      }
+    } catch (err) {
+      console.error("Error creating schedule:", err);
+      Alert.alert("Error", "Failed to create schedule.");
+    }
+  };
+
+  const handleScheduleCancel = () => {
+    setScheduleModalVisible(false);
+  };
+
   const handleUnmatch = () => {
     closeSheet();
 
@@ -520,6 +564,32 @@ Câu trả lời cho sender_id Me:
                 );
               },
             });
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteConversation = () => {
+    closeSheet();
+    Alert.alert(
+      "Are you sure?",
+      "This will permanently block and unmatch them.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Block and Unmatch",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteConversationById(conversationId);
+              console.log("Successfully unmatched.");
+            } catch (error) {
+              console.error("Failed to unmatch:", error);
+            }
           },
         },
       ]
@@ -585,7 +655,7 @@ Câu trả lời cho sender_id Me:
           )}
 
           {/* File Preview */}
-          <View style={{ marginBottom: 4 }}>
+          <View>
             {selectedFile && selectedFile.uri && (
               <FilePreview
                 selectedFile={selectedFile}
@@ -612,9 +682,13 @@ Câu trả lời cho sender_id Me:
               onTextChange={handleTextChange}
               onSend={handleSend}
               isSending={isSending}
-              onAIResponse={async (done) => {
+              onAIResponse={async (customizationMessage, done) => {
                 try {
-                  const success = await getAIResponse(messages, userId);
+                  const success = await getAIResponse(
+                    messages,
+                    userId,
+                    customizationMessage
+                  );
                   done(success);
                 } catch (err) {
                   done(false);
@@ -647,11 +721,25 @@ Câu trả lời cho sender_id Me:
           onReportUser={handleReportUser}
           onReportMessage={handleReportMessage}
           onUnmatch={handleUnmatch}
+          onDelete={handleDeleteConversation}
+          onCreateSchedule={handleCreateSchedule}
           onClose={closeSheet}
           slideAnim={slideAnim}
           height={height}
         />
       )}
+
+      <InputDateAlertModal
+        visible={scheduleModalVisible}
+        title="Ask on a Date"
+        message="Enter a title and pick a date/time:"
+        placeholder="e.g. Lunch with Anna"
+        defaultDate={new Date()}
+        okText="Send"
+        cancelText="Cancel"
+        onOk={handleScheduleOk}
+        onCancel={handleScheduleCancel}
+      />
 
       {/* Extend Sheet */}
       {showExtendSheet && (

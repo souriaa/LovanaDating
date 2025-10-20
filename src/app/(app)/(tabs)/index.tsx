@@ -36,6 +36,7 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [canUsePremium, setCanUsePremium] = useState(false);
   const [profileComplete, setProfileComplete] = useState<boolean | null>(null);
+  const [locationGranted, setLocationGranted] = useState<boolean | null>(null);
   const queryClient = useQueryClient();
 
   const hasProfiles = data && data.length > 0;
@@ -88,15 +89,16 @@ export default function Page() {
           error: authError,
         } = await supabase.auth.getUser();
         if (authError || !user) {
-          console.log("❌ No user found:", authError);
           return;
         }
 
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== "granted") {
-          console.log("Location permission not granted");
+          setLocationGranted(false);
           return;
         }
+
+        setLocationGranted(true);
 
         const { coords } = await Location.getCurrentPositionAsync({});
         const { latitude, longitude } = coords;
@@ -106,14 +108,14 @@ export default function Page() {
         // console.log("Got location:", latitude, longitude);
         // console.log("Country:", address.country);
 
-        if (address.country !== "Vietnam") {
-          Alert.alert(
-            "Access Forbidden",
-            "Logging in from outside Vietnam is not allowed. Please contact the developer."
-          );
-          signOut();
-          return;
-        }
+        // if (address.country !== "Vietnam") {
+        //   Alert.alert(
+        //     "Access Forbidden",
+        //     "Logging in from outside Vietnam is not allowed. Please contact the developer."
+        //   );
+        //   signOut();
+        //   return;
+        // }
 
         const { error: updateError } = await supabase
           .from("profiles")
@@ -257,6 +259,26 @@ export default function Page() {
     );
   }
 
+  if (profileComplete === false) {
+    return (
+      <Empty
+        title="Complete Your Profile"
+        subTitle="You need to fill out your personal information and add at least one photo before you can start matching."
+        primaryText="Update Profile"
+        onPrimaryPress={() => router.push("/profile")}
+      />
+    );
+  }
+
+  if (locationGranted === false) {
+    return (
+      <Empty
+        title="Location Required"
+        subTitle="We need your location to show nearby matches. Please enable location access in your settings."
+      />
+    );
+  }
+
   if (!hasProfiles) {
     return (
       <Empty
@@ -267,17 +289,6 @@ export default function Page() {
         onPrimaryPress={() => router.push("/preferences")}
         onSecondaryPress={handleReview}
         secondaryDisabled={!canUsePremium}
-      />
-    );
-  }
-
-  if (profileComplete === false) {
-    return (
-      <Empty
-        title="Complete Your Profile"
-        subTitle="You need to fill out your personal information and add at least one photo before you can start matching."
-        primaryText="Update Profile"
-        onPrimaryPress={() => router.push("/profile")}
       />
     );
   }

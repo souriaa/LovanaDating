@@ -46,13 +46,18 @@ function PayPlanCard({
   i,
 }: PayPlanCardProps) {
   const cardWidth = screenWidth * 0.85;
-  const cardColors = [
-    theme.colors.primaryLight,
-    theme.colors.primary,
-    theme.colors.primaryDark,
-  ];
-  const bgColor = cardColors[i % cardColors.length];
-
+  const bgColor = (() => {
+    switch (title.toLowerCase()) {
+      case "light":
+        return theme.colors.primaryLight;
+      case "premium":
+        return theme.colors.primary;
+      case "lovana":
+        return theme.colors.primaryDark;
+      default:
+        return theme.colors.primaryLight;
+    }
+  })();
   const [upgradeText, setUpgradeText] = useState(`From ${weeklyPrice}`);
   const [loading, setLoading] = useState(true);
   const [activePlan, setActivePlan] = useState(null);
@@ -208,6 +213,8 @@ export default function MyPayPlan({ refreshKey }) {
     }
   };
 
+  const lovanaPlan = plans.find((p) => p.name.toLowerCase() === "lovana");
+
   return (
     <SafeAreaView className="flex-1 bg-white mt-5">
       <ScrollView
@@ -229,7 +236,7 @@ export default function MyPayPlan({ refreshKey }) {
             <Ionicons
               name="star-outline"
               size={24}
-              color={theme.colors.primary}
+              color={theme.colors.primaryDark}
             />
             <Text style={styles.perkTitle}>Super Likes</Text>
             <Text style={styles.perkSubtitle}>{superLikes}</Text>
@@ -248,7 +255,7 @@ export default function MyPayPlan({ refreshKey }) {
             <Ionicons
               name="time-outline"
               size={24}
-              color={theme.colors.primary}
+              color={theme.colors.primaryDark}
             />
             <Text style={styles.perkTitle}>Time Extender</Text>
             <Text style={styles.perkSubtitle}>{timeExtender}</Text>
@@ -266,7 +273,7 @@ export default function MyPayPlan({ refreshKey }) {
                   key={plan.id}
                   planId={plan.id}
                   title={plan.name}
-                  subtitle={plan.name_subtitle}
+                  subtitle={plan.description}
                   features={plan.features || []}
                   weeklyPrice={
                     Number(plan.price_weekly).toLocaleString() +
@@ -293,7 +300,7 @@ export default function MyPayPlan({ refreshKey }) {
                 {plans[selectedIndex].name}
               </Text>
 
-              {plans[plans.length - 1].features.map((feature, i) => {
+              {lovanaPlan?.features.map((feature, i) => {
                 const selectedPlan = plans[selectedIndex];
                 const hasFeature = selectedPlan.features.includes(feature);
 
@@ -302,7 +309,7 @@ export default function MyPayPlan({ refreshKey }) {
                     key={i}
                     style={[
                       styles.featureRow,
-                      i === plans[plans.length - 1].features.length - 1 && {
+                      i === lovanaPlan.features.length - 1 && {
                         borderBottomWidth: 0,
                       },
                     ]}
@@ -313,11 +320,11 @@ export default function MyPayPlan({ refreshKey }) {
                         {
                           color: !hasFeature
                             ? theme.colors.textLighterGray
-                            : selectedPlan.name === "Plus"
+                            : selectedPlan.name.toLowerCase() === "light"
                               ? theme.colors.primaryLight
-                              : selectedPlan.name === "Premium"
+                              : selectedPlan.name.toLowerCase() === "premium"
                                 ? theme.colors.primary
-                                : selectedPlan.name === "Lovana"
+                                : selectedPlan.name.toLowerCase() === "lovana"
                                   ? theme.colors.primaryDark
                                   : theme.colors.primary,
                         },
@@ -331,11 +338,11 @@ export default function MyPayPlan({ refreshKey }) {
                       color={
                         !hasFeature
                           ? theme.colors.textLighterGray
-                          : selectedPlan?.name === "Plus"
+                          : selectedPlan.name.toLowerCase() === "light"
                             ? theme.colors.primaryLight
-                            : selectedPlan?.name === "Premium"
+                            : selectedPlan.name.toLowerCase() === "premium"
                               ? theme.colors.primary
-                              : selectedPlan?.name === "Lovana"
+                              : selectedPlan.name.toLowerCase() === "lovana"
                                 ? theme.colors.primaryDark
                                 : theme.colors.primary
                       }
@@ -382,6 +389,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingBottom: 16,
     alignItems: "center",
+    flex: 1,
   },
   premiumTitle: {
     fontSize: 20,
@@ -395,6 +403,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: theme.colors.textLight,
     fontFamily: "Poppins-SemiBold",
+    flex: 1,
   },
   activeBadge: {
     backgroundColor: "white",
