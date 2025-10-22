@@ -1,4 +1,3 @@
-import AboutUs from "@/components/about-us";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Link, router, Stack } from "expo-router";
@@ -15,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { theme } from "../../../../constants/theme";
 import { useMyProfile } from "../../../api/my-profile";
+import AboutUs from "../../../components/about-us";
 import { Card } from "../../../components/card";
 import MyPayPlan from "../../../components/my-pay-plan";
 import { useTabBar } from "../../../context/tabBarContext";

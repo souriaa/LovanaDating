@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { theme } from "~/constants/theme";
+import { theme } from "../../constants/theme";
 
 type InputAlertModalProps = {
   visible: boolean;
