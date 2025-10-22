@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { DraggableGrid } from "react-native-draggable-grid";
-import { theme } from "~/constants/theme";
+import { theme } from "../../constants/theme";
 import { Photo, PrivateProfile } from "../api/my-profile/types";
 import { supabase } from "../lib/supabase";
 import { useEdit } from "../store/edit";

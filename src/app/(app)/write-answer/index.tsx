@@ -8,11 +8,11 @@ import { usePrompts } from "../../../api/options";
 import { Prompt } from "../../../api/options/types";
 import { useEdit } from "../../../store/edit";
 
-import { StackHeaderV3 } from "@/components/stack-header-v3";
 import { Ionicons } from "@expo/vector-icons";
-import { theme } from "~/constants/theme";
-import { getActivePlanByUserId } from "~/service/profilePlanService";
-import { getProfile } from "~/service/userService";
+import { theme } from "../../../../constants/theme";
+import { getActivePlanByUserId } from "../../../../service/profilePlanService";
+import { getProfile } from "../../../../service/userService";
+import { StackHeaderV3 } from "../../../components/stack-header-v3";
 import {
   getAIProfileStatus,
   LIMIT,

@@ -1,5 +1,3 @@
-import { useUnmatch } from "@/api/profiles";
-import { Empty } from "@/components/empty";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, Stack, useFocusEffect } from "expo-router";
@@ -24,21 +22,23 @@ import ReAnimated, {
   FadeOut,
   LinearTransition,
 } from "react-native-reanimated";
-import { getInteractionByActorAndTarget } from "~/service/interactionService";
-import { getActivePlanByUserId } from "~/service/profilePlanService";
 import { theme } from "../../../../../constants/theme";
 import {
   getCompatibilityMembersInfo,
   getConversationCompatibility,
   setConversationCompatibility,
 } from "../../../../../service/compatibilityAIService";
+import { getInteractionByActorAndTarget } from "../../../../../service/interactionService";
 import {
   deleteConversationById,
   extendConversationTime,
   fetchConversations,
 } from "../../../../../service/messageService";
+import { getActivePlanByUserId } from "../../../../../service/profilePlanService";
 import { getProfile } from "../../../../../service/userService";
+import { useUnmatch } from "../../../../api/profiles";
 import { CountdownCircle } from "../../../../components/countdown-circle";
+import { Empty } from "../../../../components/empty";
 import { Loader } from "../../../../components/loader";
 import { supabase } from "../../../../lib/supabase";
 

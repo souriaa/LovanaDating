@@ -10,8 +10,6 @@ import {
   View,
 } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { getActivePlanByUserId } from "~/service/profilePlanService";
-import { getProfile } from "~/service/userService";
 import { theme } from "../../constants/theme";
 import {
   declineSchedule,
@@ -19,6 +17,9 @@ import {
   getScheduleSubtext,
   participateInSchedule,
 } from "../../service/messageService";
+import { getActivePlanByUserId } from "../../service/profilePlanService";
+import { getProfile } from "../../service/userService";
+import { supabase } from "../lib/supabase";
 import { SwipeableMessage } from "./swipeable-message";
 
 interface MessageItemProps {
@@ -85,6 +86,29 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         if (subtext) setAiRecommendation(subtext);
       })();
     }
+  }, [item.id]);
+
+  useEffect(() => {
+    if (!item.is_schedule) return;
+
+    const channel = supabase
+      .channel("public:message_schedule_participants")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "message_schedule_participants",
+        },
+        (payload) => {
+          fetchParticipants();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [item.id]);
 
   const fetchParticipants = async () => {

@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { FC, useEffect, useState } from "react";
 import { Dimensions, Text, TouchableOpacity, View } from "react-native";
 import { DraggableGrid } from "react-native-draggable-grid";
-import { theme } from "~/constants/theme";
+import { theme } from "../../constants/theme";
 import { deleteProfileAnswer } from "../../service/profileAnswerService";
 import { Answer, PrivateProfile } from "../api/my-profile/types";
 import { useEdit } from "../store/edit";
