@@ -462,7 +462,6 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               flexDirection: "row",
               alignItems: "center",
               justifyContent: isMine ? "flex-end" : "flex-start",
-              marginVertical: 2,
             }}
           >
             {/* Left button if isMine */}
