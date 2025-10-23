@@ -2,7 +2,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Alert,
-  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,10 +9,12 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { theme } from "~/constants/theme";
-import { getPlanById } from "~/service/planService";
-import { getProfile } from "~/service/userService";
-import { supabase } from "@/lib/supabase";
+import { theme } from "../../../../constants/theme";
+import { getPlanById } from "../../../../service/planService";
+import { getProfile } from "../../../../service/userService";
+import Header from "../../../components/Header";
+import { Loader } from "../../../components/loader";
+import { supabase } from "../../../lib/supabase";
 
 export default function GetPlan() {
   const { planId } = useLocalSearchParams<{ planId: string }>();
@@ -38,7 +39,7 @@ export default function GetPlan() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text>Loading...</Text>
+        <Loader />
       </SafeAreaView>
     );
   }
@@ -54,6 +55,7 @@ export default function GetPlan() {
   const handleContinue = async () => {
     try {
       if (!plan) return;
+
       const {
         data: { user },
         error,
@@ -65,48 +67,71 @@ export default function GetPlan() {
 
       const userId = await getProfile();
 
-      // Determine selected price
       let amount = 0;
-      let dueDate = new Date();
+      let plan_due_date = "";
       if (selectedPlan === "week") {
         amount = plan.price_weekly;
-        dueDate.setDate(dueDate.getDate() + 7);
+        plan_due_date = "1w";
       }
       if (selectedPlan === "month") {
         amount = plan.price_monthly;
-        dueDate.setMonth(dueDate.getMonth() + 1);
+        plan_due_date = "1m";
       }
       if (selectedPlan === "year") {
         amount = plan.price_yearly;
-        dueDate.setFullYear(dueDate.getFullYear() + 1);
+        plan_due_date = "1y";
       }
 
-      const { data, error: insertError } = await supabase
+      const { data: existingPayment, error: checkError } = await supabase
         .from("payments")
-        .insert([
-          {
-            user_id: userId?.id,
-            plan_id: plan.id,
-            status: "pending",
-            plan_due_date: dueDate.toISOString(),
-          },
-        ])
-        .select()
-        .single();
+        .select("id")
+        .eq("user_id", userId?.id)
+        .eq("plan_id", plan.id)
+        .eq("status", "pending")
+        .maybeSingle();
 
-      if (insertError || !data) {
-        console.error("Insert error:", insertError);
-        Alert.alert("Payment Error", "Could not create payment row.");
+      if (checkError) {
+        console.error("Check error:", checkError);
+        Alert.alert("Payment Error", "Could not check existing payment.");
         return;
       }
+
+      let paymentId;
+
+      if (existingPayment) {
+        paymentId = existingPayment;
+      } else {
+        const { data: newPayment, error: insertError } = await supabase
+          .from("payments")
+          .insert([
+            {
+              user_id: userId?.id,
+              plan_id: plan.id,
+              status: "pending",
+            },
+          ])
+          .select()
+          .single();
+
+        if (insertError || !newPayment) {
+          console.error("Insert error:", insertError);
+          Alert.alert("Payment Error", "Could not create payment row.");
+          return;
+        }
+
+        paymentId = newPayment;
+      }
+
       router.back();
       router.push({
-        pathname: "/plans/qr-page",
+        pathname: "/qr/qr-page",
         params: {
-          userId: userId?.id,
-          paymentId: data.id,
+          paymentId: paymentId.id,
           amount: amount.toString(),
           currency: plan.currency,
+          type: "plan",
+          name: plan.name,
+          plan_due_date,
         },
       });
     } catch (err) {
@@ -119,9 +144,9 @@ export default function GetPlan() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         {/* Scrollable content */}
+        <Header title={`Get ${plan.name}`} mb={0} ml={15} />
         <ScrollView contentContainerStyle={styles.scroll}>
           {/* Header */}
-          <Text style={styles.title}>Get {plan.name}</Text>
           <Text style={styles.subtitle}>{plan.name_subtitle}</Text>
 
           {/* Features */}
@@ -151,6 +176,7 @@ export default function GetPlan() {
           contentContainerStyle={styles.planRow}
           showsHorizontalScrollIndicator={false}
         >
+          {/* Week */}
           <TouchableOpacity
             style={[
               styles.planCard,
@@ -161,11 +187,38 @@ export default function GetPlan() {
           >
             <Text style={styles.planLabelTitle}>1</Text>
             <Text style={styles.planLabel}>Week</Text>
-            <Text style={styles.planPrice}>
-              {Number(plan.price_weekly).toLocaleString() + " " + plan.currency}
-            </Text>
+
+            {plan.price_weekly_discount_percent > 0 ? (
+              <View style={{ alignItems: "center" }}>
+                {/* Giá gốc */}
+                <Text style={[styles.planPrice, styles.discountPrice]}>
+                  {Number(plan.price_weekly).toLocaleString()} {plan.currency}
+                </Text>
+
+                {/* Giá sau giảm */}
+                <Text style={[styles.planPrice, { color: "red" }]}>
+                  {Number(
+                    plan.price_weekly *
+                      (1 - plan.price_weekly_discount_percent / 100)
+                  ).toLocaleString()}{" "}
+                  {plan.currency}
+                </Text>
+
+                {/* Box SAVE */}
+                <View style={styles.planDiscountPercent}>
+                  <Text style={styles.planDiscountPercentText}>
+                    SAVE {plan.price_weekly_discount_percent}%
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.planPrice}>
+                {Number(plan.price_weekly).toLocaleString()} {plan.currency}
+              </Text>
+            )}
           </TouchableOpacity>
 
+          {/* Month */}
           <TouchableOpacity
             style={[
               styles.planCard,
@@ -175,13 +228,35 @@ export default function GetPlan() {
           >
             <Text style={styles.planLabelTitle}>1</Text>
             <Text style={styles.planLabel}>Month</Text>
-            <Text style={styles.planPrice}>
-              {Number(plan.price_monthly).toLocaleString() +
-                " " +
-                plan.currency}
-            </Text>
+
+            {plan.price_monthly_discount_percent > 0 ? (
+              <View style={{ alignItems: "center" }}>
+                <Text style={[styles.planPrice, styles.discountPrice]}>
+                  {Number(plan.price_monthly).toLocaleString()} {plan.currency}
+                </Text>
+
+                <Text style={[styles.planPrice, { color: "red" }]}>
+                  {Number(
+                    plan.price_monthly *
+                      (1 - plan.price_monthly_discount_percent / 100)
+                  ).toLocaleString()}{" "}
+                  {plan.currency}
+                </Text>
+
+                <View style={styles.planDiscountPercent}>
+                  <Text style={styles.planDiscountPercentText}>
+                    SAVE {plan.price_monthly_discount_percent}%
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.planPrice}>
+                {Number(plan.price_monthly).toLocaleString()} {plan.currency}
+              </Text>
+            )}
           </TouchableOpacity>
 
+          {/* Year */}
           <TouchableOpacity
             style={[
               styles.planCard,
@@ -191,9 +266,32 @@ export default function GetPlan() {
           >
             <Text style={styles.planLabelTitle}>1</Text>
             <Text style={styles.planLabel}>Year</Text>
-            <Text style={styles.planPrice}>
-              {Number(plan.price_yearly).toLocaleString() + " " + plan.currency}
-            </Text>
+
+            {plan.price_yearly_discount_percent > 0 ? (
+              <View style={{ alignItems: "center" }}>
+                <Text style={[styles.planPrice, styles.discountPrice]}>
+                  {Number(plan.price_yearly).toLocaleString()} {plan.currency}
+                </Text>
+
+                <Text style={[styles.planPrice, { color: "red" }]}>
+                  {Number(
+                    plan.price_yearly *
+                      (1 - plan.price_yearly_discount_percent / 100)
+                  ).toLocaleString()}{" "}
+                  {plan.currency}
+                </Text>
+
+                <View style={styles.planDiscountPercent}>
+                  <Text style={styles.planDiscountPercentText}>
+                    SAVE {plan.price_yearly_discount_percent}%
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.planPrice}>
+                {Number(plan.price_yearly).toLocaleString()} {plan.currency}
+              </Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
 
@@ -211,7 +309,7 @@ export default function GetPlan() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.primaryDark,
+    backgroundColor: theme.colors.textLight,
   },
   scroll: {
     padding: 20,
@@ -221,13 +319,13 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: "Poppins-Bold",
     marginBottom: 6,
-    color: theme.colors.textLight,
+    color: theme.colors.textDark,
   },
   subtitle: {
     fontSize: 14,
     textAlign: "center",
     marginBottom: 16,
-    color: theme.colors.textLight,
+    color: theme.colors.textDark,
     fontFamily: "Poppins-Regular",
   },
   featuresBox: {
@@ -237,17 +335,16 @@ const styles = StyleSheet.create({
   featureTitle: {
     fontSize: 14,
     fontFamily: "Poppins-SemiBold",
-    color: theme.colors.textLight,
+    color: theme.colors.textDark,
   },
   featureItem: {
     fontSize: 14,
     marginVertical: 4,
     fontFamily: "Poppins-Regular",
-    color: theme.colors.textLight,
   },
   planRow: {
     marginBottom: 80,
-    height: 160,
+    height: 180,
     paddingTop: 20,
   },
   planCard: {
@@ -257,9 +354,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 8,
     marginHorizontal: 8,
-    width: 160,
+    width: 140,
     borderWidth: 1,
-    borderColor: "#FFFFFF00",
+    borderColor: theme.colors.textLighterGray,
   },
   planLabelTitle: {
     fontSize: 24,
@@ -271,12 +368,29 @@ const styles = StyleSheet.create({
   },
   planPrice: {
     fontSize: 16,
-    marginTop: 6,
     fontFamily: "Poppins-Bold",
     textAlign: "center",
+    marginTop: 10,
+  },
+  discountPrice: {
+    textDecorationLine: "line-through",
+    color: "gray",
+    fontSize: 12,
+    marginTop: 0,
+  },
+  planDiscountPercent: {
+    backgroundColor: "#FFEAEA",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  planDiscountPercentText: {
+    fontSize: 12,
+    color: "red",
+    fontFamily: "Poppins-SemiBold",
   },
   continueBtn: {
-    backgroundColor: "#111827",
+    backgroundColor: theme.colors.primaryDark,
     paddingVertical: 14,
     paddingHorizontal: 40,
     borderRadius: 30,
@@ -302,12 +416,11 @@ const styles = StyleSheet.create({
     padding: 20,
     borderTopWidth: 1,
     borderTopColor: "#e5e7eb",
-    backgroundColor: theme.colors.primaryDark,
+    backgroundColor: theme.colors.textLight,
   },
   table: {
     width: "100%",
     marginTop: 8,
-    borderWidth: 1,
     borderColor: "#e5e7eb",
     borderRadius: 8,
   },
@@ -329,13 +442,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontFamily: "Poppins-Regular",
-    color: theme.colors.textLight,
+    color: theme.colors.textDark,
   },
   lastRow: {
     borderBottomWidth: 0,
   },
   planCardSelected: {
-    borderWidth: 1,
-    borderColor: theme.colors.textDark,
+    borderWidth: 2,
+    borderColor: theme.colors.primaryDark,
   },
 });

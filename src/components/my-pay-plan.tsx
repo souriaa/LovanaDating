@@ -1,4 +1,3 @@
-import { useMyProfile } from "@/api/my-profile";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { MotiView } from "moti";
@@ -7,17 +6,20 @@ import {
   ActivityIndicator,
   Dimensions,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { theme } from "../../constants/theme";
 import { getLikes } from "../../service/likeService";
 import { getPlans } from "../../service/planService";
-import { getProfile } from "~/service/userService";
 import { getProfilePlansByUser } from "../../service/profilePlanService";
+import { getProfile } from "../../service/userService";
+import { useMyProfile } from "../api/my-profile";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -44,14 +46,19 @@ function PayPlanCard({
   i,
 }: PayPlanCardProps) {
   const cardWidth = screenWidth * 0.85;
-  const cardColors = [
-    theme.colors.primaryLight,
-    theme.colors.primary,
-    theme.colors.primaryDark,
-  ];
-  const bgColor = cardColors[i % cardColors.length];
-
-  const [upgradeText, setUpgradeText] = useState(`Upgrade from ${weeklyPrice}`);
+  const bgColor = (() => {
+    switch (title.toLowerCase()) {
+      case "light":
+        return theme.colors.primaryLight;
+      case "premium":
+        return theme.colors.primary;
+      case "lovana":
+        return theme.colors.primaryDark;
+      default:
+        return theme.colors.primaryLight;
+    }
+  })();
+  const [upgradeText, setUpgradeText] = useState(`From ${weeklyPrice}`);
   const [loading, setLoading] = useState(true);
   const [activePlan, setActivePlan] = useState(null);
 
@@ -76,15 +83,15 @@ function PayPlanCard({
             if (dueDate && now < dueDate) {
               setUpgradeText(`Plan expired on ${dueDate.toLocaleDateString()}`);
             } else {
-              setUpgradeText(`Upgrade from ${weeklyPrice}`);
+              setUpgradeText(`From ${weeklyPrice}`);
             }
           } else {
-            setUpgradeText(`Upgrade from ${weeklyPrice}`);
+            setUpgradeText(`From ${weeklyPrice}`);
           }
         }
       } catch (err) {
         console.error("fetchProfilePlan error:", err);
-        setUpgradeText(`Upgrade from ${weeklyPrice}`);
+        setUpgradeText(`From ${weeklyPrice}`);
       } finally {
         setLoading(false);
       }
@@ -134,69 +141,125 @@ function PayPlanCard({
   );
 }
 
-export default function MyPayPlan() {
+export default function MyPayPlan({ refreshKey }) {
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { data: profile } = useMyProfile();
   const [superLikes, setSuperLikes] = useState<number | null>(null);
+  const [timeExtender, setTimeExtender] = useState<number | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const fetchPlans = async () => {
-      try {
-        const data = await getPlans();
-        if (!data) return;
+  const fetchPlans = async () => {
+    try {
+      const data = await getPlans();
+      if (!data) return;
 
-        let orderedPlans = [...data];
+      let orderedPlans = [...data];
 
-        // Put the active plan first
-        if (profile?.id) {
-          const profilePlans = await getProfilePlansByUser(profile.id);
-          if (profilePlans && profilePlans.length > 0) {
-            const activePlanId = profilePlans[0].plan_id;
+      if (profile?.id) {
+        const profilePlans = await getProfilePlansByUser(profile.id);
+        if (profilePlans && profilePlans.length > 0) {
+          const plan = profilePlans[0];
+          const planDueDate = new Date(plan.plan_due_date);
+          const now = new Date();
+
+          if (planDueDate > now) {
+            const activePlanId = plan.plan_id;
             orderedPlans = data.sort((a, b) =>
               a.id === activePlanId ? -1 : b.id === activePlanId ? 1 : 0
             );
+          } else {
+            orderedPlans = data;
           }
         }
-
-        setPlans(orderedPlans);
-      } catch (err) {
-        console.error("Error loading plans:", err);
-      } finally {
-        setLoading(false);
       }
-    };
 
-    fetchPlans();
-  }, [profile?.id]);
+      setPlans(orderedPlans);
+    } catch (err) {
+      console.error("Error loading plans:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchLikes = async () => {
+    if (!profile?.id) return;
+    try {
+      const data = await getLikes(profile.id);
+      setSuperLikes(data?.super_likes_remaining ?? 0);
+      setTimeExtender(data?.time_extend_remaining ?? 0);
+    } catch (err) {
+      console.error("Error loading super likes:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchLikes = async () => {
-      if (!profile?.id) return;
-      try {
-        const data = await getLikes(profile.id);
-        setSuperLikes(data?.super_likes_remaining ?? 0);
-      } catch (err) {
-        console.error("Error loading super likes:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
+    fetchPlans();
     fetchLikes();
-  }, [profile?.id]);
+  }, [profile?.id, refreshKey]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchPlans();
+      await fetchLikes();
+    } catch (err) {
+      console.error("Failed to refresh MyPayPlan:", err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const lovanaPlan = plans.find((p) => p.name.toLowerCase() === "lovana");
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <ScrollView>
+    <SafeAreaView className="flex-1 bg-white mt-5">
+      <ScrollView
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {/* Perks row */}
         <View style={styles.perksRow}>
-          <View style={styles.perkCard}>
-            <Ionicons name="flash" size={24} color={theme.colors.primary} />
-            <Text style={styles.perkTitle}>SuperSwipe</Text>
+          <TouchableOpacity
+            style={styles.perkCard}
+            onPress={() =>
+              router.push({
+                pathname: "/consumables/get-consumables",
+                params: { consumableId: 1 },
+              })
+            }
+          >
+            <Ionicons
+              name="star-outline"
+              size={24}
+              color={theme.colors.primaryDark}
+            />
+            <Text style={styles.perkTitle}>Super Likes</Text>
             <Text style={styles.perkSubtitle}>{superLikes}</Text>
-          </View>
+          </TouchableOpacity>
+
+          {/* Time Extender */}
+          <TouchableOpacity
+            style={styles.perkCard}
+            onPress={() =>
+              router.push({
+                pathname: "/consumables/get-consumables",
+                params: { consumableId: 2 },
+              })
+            }
+          >
+            <Ionicons
+              name="time-outline"
+              size={24}
+              color={theme.colors.primaryDark}
+            />
+            <Text style={styles.perkTitle}>Time Extender</Text>
+            <Text style={styles.perkSubtitle}>{timeExtender}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Plans */}
@@ -210,7 +273,7 @@ export default function MyPayPlan() {
                   key={plan.id}
                   planId={plan.id}
                   title={plan.name}
-                  subtitle={plan.name_subtitle}
+                  subtitle={plan.description}
                   features={plan.features || []}
                   weeklyPrice={
                     Number(plan.price_weekly).toLocaleString() +
@@ -237,7 +300,7 @@ export default function MyPayPlan() {
                 {plans[selectedIndex].name}
               </Text>
 
-              {plans[plans.length - 1].features.map((feature, i) => {
+              {lovanaPlan?.features.map((feature, i) => {
                 const selectedPlan = plans[selectedIndex];
                 const hasFeature = selectedPlan.features.includes(feature);
 
@@ -246,7 +309,7 @@ export default function MyPayPlan() {
                     key={i}
                     style={[
                       styles.featureRow,
-                      i === plans[plans.length - 1].features.length - 1 && {
+                      i === lovanaPlan.features.length - 1 && {
                         borderBottomWidth: 0,
                       },
                     ]}
@@ -255,9 +318,15 @@ export default function MyPayPlan() {
                       style={[
                         styles.featureText,
                         {
-                          color: hasFeature
-                            ? theme.colors.primary
-                            : theme.colors.textLighterGray,
+                          color: !hasFeature
+                            ? theme.colors.textLighterGray
+                            : selectedPlan.name.toLowerCase() === "light"
+                              ? theme.colors.primaryLight
+                              : selectedPlan.name.toLowerCase() === "premium"
+                                ? theme.colors.primary
+                                : selectedPlan.name.toLowerCase() === "lovana"
+                                  ? theme.colors.primaryDark
+                                  : theme.colors.primary,
                         },
                       ]}
                     >
@@ -266,7 +335,17 @@ export default function MyPayPlan() {
                     <Ionicons
                       name={hasFeature ? "checkmark-outline" : ""}
                       size={22}
-                      color={hasFeature ? theme.colors.primary : ""}
+                      color={
+                        !hasFeature
+                          ? theme.colors.textLighterGray
+                          : selectedPlan.name.toLowerCase() === "light"
+                            ? theme.colors.primaryLight
+                            : selectedPlan.name.toLowerCase() === "premium"
+                              ? theme.colors.primary
+                              : selectedPlan.name.toLowerCase() === "lovana"
+                                ? theme.colors.primaryDark
+                                : theme.colors.primary
+                      }
                     />
                   </View>
                 );
@@ -292,7 +371,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     marginHorizontal: 4,
-    maxWidth: "50%",
+    maxWidth: "40%",
   },
   perkTitle: {
     fontSize: 14,
@@ -310,6 +389,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingBottom: 16,
     alignItems: "center",
+    flex: 1,
   },
   premiumTitle: {
     fontSize: 20,
@@ -323,6 +403,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: theme.colors.textLight,
     fontFamily: "Poppins-SemiBold",
+    flex: 1,
   },
   activeBadge: {
     backgroundColor: "white",

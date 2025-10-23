@@ -1,21 +1,25 @@
-import { useLikes, useMatch, useRemoveLike } from "@/api/profiles";
-import { Fab } from "@/components/fab";
-import { ProfileView } from "@/components/profile-view";
-import { transformPublicProfile } from "@/utils/profile";
-import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Stack, router, useLocalSearchParams } from "expo-router";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { getInteractionByActorAndTarget } from "../../../../../service/interactionService";
+import { createConversation } from "../../../../../service/messageService";
+import { getPushTokensByProfileId } from "../../../../../service/pushNotiService";
+import { getProfile } from "../../../../../service/userService";
+import { useLikes, useMatch, useRemoveLike } from "../../../../api/profiles";
+import { Fab } from "../../../../components/fab";
+import { ProfileView } from "../../../../components/profile-view";
+import { transformPublicProfile } from "../../../../utils/profile";
+import { sendPushNotification } from "../../../../utils/pushNotification";
 
 const Page = () => {
   const { id } = useLocalSearchParams();
+
   const { mutate: remove, isPending: removePending } = useRemoveLike();
   const { mutate: match, isPending: matchPending } = useMatch();
 
   const { data } = useLikes();
   const like = data.find((like) => like.id === id);
   let profile;
-
-  console.log(like);
 
   const handleRemove = () => {
     if (like) {
@@ -30,16 +34,78 @@ const Page = () => {
     }
   };
 
-  const handleMatch = () => {
-    if (like) {
+  const handleMatch = async () => {
+    if (!like) return;
+
+    try {
+      const currentUser = await getProfile();
+      if (!currentUser) {
+        return;
+      }
+
+      const interaction = await getInteractionByActorAndTarget(
+        like.profile.id,
+        currentUser.id
+      );
+
+      const firstMessageSent = interaction?.status_id === 7;
+
       match(like.id, {
-        onSuccess: () => {
-          router.back();
+        onSuccess: async () => {
+          try {
+            const conversation = await createConversation({
+              userIds: [currentUser.id, like.profile.id],
+              isGroup: false,
+              first_message_sent: firstMessageSent,
+            });
+
+            if (conversation?.success) {
+              const conversationId = conversation.data.id;
+              try {
+                const tokens = await getPushTokensByProfileId(like.profile.id);
+
+                if (tokens && tokens.length > 0) {
+                  const senderName = currentUser.first_name || "Someone";
+
+                  await Promise.all(
+                    tokens.map((token) =>
+                      sendPushNotification({
+                        to: token,
+                        title: `${senderName} matched with you! 💖`,
+                        body: `Start chatting now!`,
+                        data: {
+                          type: "match",
+                          conversationId: conversationId,
+                        },
+                        sound: "default",
+                        priority: "high",
+                      })
+                    )
+                  );
+                } else {
+                }
+              } catch (notifyErr) {
+                console.error("Error sending match notification:", notifyErr);
+              }
+              router.push(
+                `/messages/chatScreen?conversationId=${conversationId}`
+              );
+            } else {
+              console.error(
+                "❌ Failed to create conversation:",
+                conversation?.message
+              );
+            }
+          } catch (err) {
+            console.error("Error creating conversation:", err);
+          }
         },
         onError: () => {
           Alert.alert("Error", "Something went wrong, please try again later");
         },
       });
+    } catch (err) {
+      console.error("Unexpected error:", err);
     }
   };
 
@@ -55,12 +121,19 @@ const Page = () => {
         options={{
           headerLeft: () => (
             <Pressable onPressOut={() => router.back()}>
-              <Text
-                className="text-base font-poppins-medium"
-                suppressHighlighting
-              >
-                All
-              </Text>
+              <View className="flex-row items-center" style={{ marginTop: 20 }}>
+                <Ionicons
+                  name="chevron-back"
+                  className="text-2xl"
+                  suppressHighlighting
+                />
+                <Text
+                  className="text-xl font-poppins-medium"
+                  suppressHighlighting
+                >
+                  All
+                </Text>
+              </View>
             </Pressable>
           ),
           title: "",
@@ -68,7 +141,7 @@ const Page = () => {
         }}
       />
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View className="h-28 bg-neutral-200 overflow-hidden rounded-md ">
+        {/* <View className="h-28 bg-neutral-200 overflow-hidden rounded-md ">
           {like?.photo_url ? (
             <Image source={like?.photo_url} className="aspect-square w-full" />
           ) : (
@@ -78,12 +151,12 @@ const Page = () => {
               </Text>
             </View>
           )}
-        </View>
+        </View> */}
         <ProfileView profile={profile} />
       </ScrollView>
 
       <Fab
-        className="absolute bottom-5 left-5 bg-white  shadow-sm h-20"
+        className="absolute bottom-20 left-5 bg-white  shadow-sm h-20"
         iconClassName="text-black text-4xl"
         iconName="close"
         onPress={handleRemove}
@@ -92,7 +165,7 @@ const Page = () => {
         disabled={removePending || matchPending}
       />
       <Fab
-        className="absolute bottom-5 right-5 bg-white  shadow-sm h-20"
+        className="absolute bottom-20 right-5 bg-white  shadow-sm h-20"
         iconClassName="text-black text-4xl"
         iconName="chatbox-outline"
         onPress={handleMatch}

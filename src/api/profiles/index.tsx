@@ -1,5 +1,5 @@
-import { supabase } from "@/lib/supabase";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "../../lib/supabase";
 import { Like, PublicProfile } from "./types";
 
 export const useProfiles = (page_size: number = 10) => {
@@ -44,10 +44,10 @@ export const useLikeProfile = () => {
       photo,
     }: {
       profile: string;
-      answer: string | undefined;
-      photo: string | undefined;
+      answer?: string;
+      photo?: string;
     }) => {
-      const { error } = await supabase.rpc("like_profile", {
+      const { data, error } = await supabase.rpc("like_profile", {
         profile,
         answer,
         photo,
@@ -56,6 +56,24 @@ export const useLikeProfile = () => {
       if (error) {
         throw error;
       }
+
+      return data ?? true;
+    },
+  });
+};
+
+export const useSuperlikeProfile = () => {
+  return useMutation({
+    mutationFn: async ({ profile }: { profile: string }) => {
+      const { data, error } = await supabase.rpc("super_like_profile", {
+        profile,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data ?? true;
     },
   });
 };
@@ -119,16 +137,12 @@ export const useMatch = () => {
           console.error("Supabase RPC error:", error);
           throw new Error(error.message);
         }
-
-        // Optional: log returned data if your RPC returns anything
-        console.log("Match RPC response:", data);
       } catch (err: any) {
         console.error("Mutation failed:", err);
         throw err; // re-throw to trigger onError
       }
     },
     onSuccess: async () => {
-      console.log("Match successful, invalidating likes cache");
       await queryClient.invalidateQueries({ queryKey: ["likes"] });
     },
     onError: (err: any) => {

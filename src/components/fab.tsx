@@ -1,7 +1,7 @@
-import { cn } from "@/utils/cn";
 import { Ionicons } from "@expo/vector-icons";
-import React, { FC } from "react";
+import { FC } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
+import { cn } from "../utils/cn";
 
 interface Props {
   disabled?: boolean;
@@ -25,7 +25,7 @@ export const Fab: FC<Props> = ({
   return (
     <Pressable
       className={cn(
-        "h-16 aspect-square rounded-full justify-center items-center bg-fuchsia-900",
+        "h-16 aspect-square rounded-full justify-center items-center bg-red-900",
         {
           "bg-neutral-200": disabled && !loading,
           "opacity-50": disabled,

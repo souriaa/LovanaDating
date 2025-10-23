@@ -10,8 +10,8 @@ export const Loader: FC<Props> = () => {
       <LottieView
         autoPlay
         // @ts-ignore
-        className="w-full h-full bg-white mt-12"
-        source={require("~/assets/images/loading.json")}
+        className="w-full h-full bg-white"
+        source={require("../../assets/images/loading.json")}
       />
     </View>
   );
