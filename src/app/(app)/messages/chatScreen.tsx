@@ -25,6 +25,8 @@ import {
   markConversationAsUnseen,
   sendMessage,
 } from "../../../../service/messageService";
+import { getPushTokensByProfileId } from "../../../../service/pushNotiService";
+import { getProfile } from "../../../../service/userService";
 import { useUnmatch } from "../../../api/profiles";
 import { ChatHeader } from "../../../components/chat-header";
 import { ExtendTimeSheet } from "../../../components/extend-time-sheet";
@@ -38,6 +40,7 @@ import { ReplyPreview } from "../../../components/reply-preview";
 import { TypingIndicator } from "../../../components/typing-indicator";
 import { WaitingContainer } from "../../../components/waiting-container";
 import { supabase } from "../../../lib/supabase";
+import { sendPushNotification } from "../../../utils/pushNotification";
 
 export default function ChatScreen() {
   const { conversationId, userId } = useLocalSearchParams();
@@ -215,9 +218,9 @@ export default function ChatScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (conversationId && userId)
+      if (lastMessage && lastMessage.sender_id !== userId)
         markConversationAsSeen(conversationId, userId).catch(console.error);
-    }, [conversationId, userId])
+    }, [lastMessage, conversationId, userId])
   );
 
   useEffect(() => {
@@ -306,6 +309,37 @@ export default function ChatScreen() {
 
       if (otherUser?.id) {
         await markConversationAsUnseen(conversationId, otherUser.id);
+      }
+
+      const senderProfile = await getProfile();
+
+      if (otherUser?.id) {
+        const tokens = await getPushTokensByProfileId(otherUser.id);
+
+        if (tokens.length > 0) {
+          const senderName =
+            senderProfile?.first_name || conversationInfo?.title || "Someone";
+          await Promise.all(
+            tokens.map((token) =>
+              sendPushNotification({
+                to: token,
+                title: `${senderName} sent you a message 💬`,
+                body:
+                  text.trim() ||
+                  (fileData
+                    ? "📎 Sent an attachment"
+                    : "You have a new message"),
+                data: {
+                  type: "chat_message",
+                  conversationId: conversationId,
+                },
+                sound: "default",
+                priority: "high",
+              })
+            )
+          );
+        } else {
+        }
       }
     } catch (err) {
       console.error("Error sending message:", err.message || err);

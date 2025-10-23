@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useConnection } from "@sendbird/uikit-react-native";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
-import { Tabs } from "expo-router";
+import * as Notifications from "expo-notifications";
+import { router, Tabs } from "expo-router";
 import { useEffect } from "react";
 import { View } from "react-native";
 import colors from "tailwindcss/colors";
@@ -12,6 +13,28 @@ import { cn } from "../../../utils/cn";
 
 const TabsComponent = () => {
   const { tabBarOpacity } = useTabBar();
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const data = response.notification.request.content.data;
+
+        if (data?.type === "superlike") {
+          router.push("/likes");
+        }
+
+        if (data?.type === "chat_message") {
+          router.push(`/matches`);
+        }
+
+        if (data?.type === "match") {
+          router.push(`/matches`);
+        }
+      }
+    );
+
+    return () => subscription.remove();
+  }, []);
 
   return (
     <Tabs
