@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import {
+  Alert,
   Animated,
   Easing,
   Image,
@@ -11,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { theme } from "../../../../constants/theme";
+import { supabase } from "../../../lib/supabase";
 
 export default function QRPage() {
   const {
@@ -78,6 +80,51 @@ export default function QRPage() {
     inputRange: [0, 1],
     outputRange: [10, 270],
   });
+
+  useEffect(() => {
+    if (!paymentId || !type) {
+      return;
+    }
+
+    const handleSuccessPayload = (payload: any) => {
+      if (payload.new && payload.new.status === "success") {
+        router.replace("/lovana");
+      }
+      Alert.alert("Success", "Transaction complete!");
+    };
+
+    const handleSubscriptionStatus = (status: string, err?: Error) => {
+      if (status === "CHANNEL_ERROR") {
+        console.error("Supabase channel error:", err);
+      }
+      if (status === "SUBSCRIBED") {
+      }
+    };
+
+    const isPlan = type === "plan";
+    const tableName = isPlan ? "payments" : "consumable_payments";
+    const channelName = isPlan
+      ? `payment_status:${paymentId}`
+      : `consumable_payment_status:${paymentId}`;
+
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: tableName,
+          filter: `id=eq.${paymentId}`,
+        },
+        handleSuccessPayload
+      )
+      .subscribe(handleSubscriptionStatus);
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [paymentId, router, type]);
 
   return (
     <SafeAreaView style={styles.container}>
