@@ -70,15 +70,21 @@ export default function GetPlan() {
       let amount = 0;
       let plan_due_date = "";
       if (selectedPlan === "week") {
-        amount = plan.price_weekly;
+        amount =
+          plan.price_weekly -
+          plan.price_weekly * (plan.price_weekly_discount_percent / 100);
         plan_due_date = "1w";
       }
       if (selectedPlan === "month") {
-        amount = plan.price_monthly;
+        amount =
+          plan.price_monthly -
+          plan.price_monthly * (plan.price_monthly_discount_percent / 100);
         plan_due_date = "1m";
       }
       if (selectedPlan === "year") {
-        amount = plan.price_yearly;
+        amount =
+          plan.price_yearly -
+          plan.price_yearly * (plan.price_yearly_discount_percent / 100);
         plan_due_date = "1y";
       }
 
@@ -207,7 +213,7 @@ export default function GetPlan() {
                 {/* Box SAVE */}
                 <View style={styles.planDiscountPercent}>
                   <Text style={styles.planDiscountPercentText}>
-                    SAVE {plan.price_weekly_discount_percent}%
+                    DISCOUNT {plan.price_weekly_discount_percent}%
                   </Text>
                 </View>
               </View>
@@ -245,14 +251,23 @@ export default function GetPlan() {
 
                 <View style={styles.planDiscountPercent}>
                   <Text style={styles.planDiscountPercentText}>
-                    SAVE {plan.price_monthly_discount_percent}%
+                    DISCOUNT {plan.price_monthly_discount_percent}% AND
+                    ADDITIONAL ~25%
                   </Text>
                 </View>
               </View>
             ) : (
-              <Text style={styles.planPrice}>
-                {Number(plan.price_monthly).toLocaleString()} {plan.currency}
-              </Text>
+              <View style={{ alignItems: "center" }}>
+                <Text style={[styles.planPrice]}>
+                  {Number(plan.price_monthly).toLocaleString()} {plan.currency}
+                </Text>
+
+                <View style={styles.planDiscountPercent}>
+                  <Text style={styles.planDiscountPercentText}>
+                    SAVE ~25% FROM WEEKLY PLAN
+                  </Text>
+                </View>
+              </View>
             )}
           </TouchableOpacity>
 
@@ -283,14 +298,23 @@ export default function GetPlan() {
 
                 <View style={styles.planDiscountPercent}>
                   <Text style={styles.planDiscountPercentText}>
-                    SAVE {plan.price_yearly_discount_percent}%
+                    DISCOUNT {plan.price_yearly_discount_percent}% AND
+                    ADDITIONAL ~25%
                   </Text>
                 </View>
               </View>
             ) : (
-              <Text style={styles.planPrice}>
-                {Number(plan.price_yearly).toLocaleString()} {plan.currency}
-              </Text>
+              <View style={{ alignItems: "center" }}>
+                <Text style={[styles.planPrice]}>
+                  {Number(plan.price_yearly).toLocaleString()} {plan.currency}
+                </Text>
+
+                <View style={styles.planDiscountPercent}>
+                  <Text style={styles.planDiscountPercentText}>
+                    SAVE ~25% FROM MONTHLY PLAN
+                  </Text>
+                </View>
+              </View>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -344,7 +368,7 @@ const styles = StyleSheet.create({
   },
   planRow: {
     marginBottom: 80,
-    height: 180,
+    minHeight: 225,
     paddingTop: 20,
   },
   planCard: {
@@ -388,6 +412,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "red",
     fontFamily: "Poppins-SemiBold",
+    textAlign: "center",
   },
   continueBtn: {
     backgroundColor: theme.colors.primaryDark,
