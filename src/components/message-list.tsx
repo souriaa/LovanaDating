@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, View } from "react-native";
+import { theme } from "~/constants/theme";
 import { setScheduleSubtext } from "../../service/messageService";
 import { InputAlertModal } from "./input-alert-modal";
 import { MessageItem } from "./message-item";
@@ -166,7 +167,10 @@ Answer in English unless otherwise instructed or answer in language that Additio
         ListFooterComponent={
           loadingOlder ? (
             <View style={{ padding: 8 }}>
-              <ActivityIndicator size="small" />
+              <ActivityIndicator
+                size="small"
+                color={theme.colors.primaryDark}
+              />
             </View>
           ) : null
         }

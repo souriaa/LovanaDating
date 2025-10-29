@@ -131,7 +131,7 @@ function PayPlanCard({
             : {})}
         >
           {loading ? (
-            <ActivityIndicator size="small" color="#111827" />
+            <ActivityIndicator size="small" color={theme.colors.primaryDark} />
           ) : (
             <Text style={styles.activeText}>{upgradeText}</Text>
           )}
