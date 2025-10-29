@@ -77,12 +77,15 @@ export default function Layout() {
       const profile = await getProfile();
       if (!profile) return;
 
-      await supabase.from("user_push_tokens").upsert({
-        profile_id: profile.id,
-        token,
-        device_name: Platform.OS,
-        updated_at: new Date(),
-      });
+      await supabase.from("user_push_tokens").upsert(
+        {
+          profile_id: profile.id,
+          token,
+          device_name: Platform.OS,
+          updated_at: new Date(),
+        },
+        { onConflict: "token" }
+      );
     };
 
     setupPush();

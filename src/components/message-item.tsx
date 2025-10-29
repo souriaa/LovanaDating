@@ -217,7 +217,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             ? styles.middleBubbleMine
             : styles.middleBubble;
 
-  const showTimestamp = showTime;
+  const isFirstOrSingle = !!item.reply_to || item.isFirstInGroup;
+
+  const showTimestamp = showTime || isFirstOrSingle;
 
   const formatTimestamp = (dateStr: string) => {
     const date = new Date(dateStr);
