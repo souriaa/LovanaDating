@@ -78,9 +78,9 @@ function PayPlanCard({
             ? new Date(plan.plan_due_date)
             : null;
 
-          setActivePlan(plan.plan_id);
           if (plan.plan_id === planId) {
             if (dueDate && now < dueDate) {
+              setActivePlan(plan.plan_id);
               setUpgradeText(`Plan expired on ${dueDate.toLocaleDateString()}`);
             } else {
               setUpgradeText(`From ${weeklyPrice}`);
